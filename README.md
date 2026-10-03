@@ -1,5 +1,9 @@
 # AdvancedAlgorithms_Assignment1
 
+Video walkthrough: https://youtu.be/FtlIDkTAyPs
+Report: [14502850_Report_41052.pdf](14502850_Report_41052.pdf)
+
+
 Bloom filter: Empirical Study (Track A)
 
 A bloom filter which has been implemented in C++, including experiments comparing its measured false positive rate against the theoretical formula, and its memory and speed against std::unordered_set. Plotting for all data is done through python.
@@ -55,5 +59,4 @@ p = (1 - e^ (-kn / m))^k
 
 Memory of the unordered_set is measured by counting every heap allocation (a replaced operator new in experiments.cpp). Memory for the bloom filter is the object size plus the packed bbit array (m / 8 bytes).
 
-Video walkthrough of program:
-https://youtu.be/FtlIDkTAyPs
+
