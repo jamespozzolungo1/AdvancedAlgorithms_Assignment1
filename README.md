@@ -56,4 +56,4 @@ p = (1 - e^ (-kn / m))^k
 Memory of the unordered_set is measured by counting every heap allocation (a replaced operator new in experiments.cpp). Memory for the bloom filter is the object size plus the packed bbit array (m / 8 bytes).
 
 Video walkthrough of program:
-(INSERT YOUTUBE VIDEO WHEN COMPLETE)
+https://youtu.be/FtlIDkTAyPs

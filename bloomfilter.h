@@ -86,7 +86,7 @@ class BloomFilter {
         int k;
         std::vector<bool> bits;
         
-        // fn1va string hash (64bit)
+        // FNV-1a  string hash (64bit)
         static uint64_t hashString(const std::string& s) {
             uint64_t h = 14695981039346656037ULL;
             
