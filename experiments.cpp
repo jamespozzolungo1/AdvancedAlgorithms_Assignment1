@@ -10,7 +10,16 @@
 #include <vector>
 #include "bloomfilter.h"
 
+// does the false-positive rate measured in these experiments match the theory, and how does the bloom filter compare
+// to std::unordered_set
+
+// theory assumes hash positoins are random and independent: 
+// false positive rate p = (1 - e^(-k*n/m))^k
+// best k = (m / n) * ln 2
+
+// how many never inserted items to check per data point
 const int NUM_TESTS = 20000;
+// memory counting for the baseline
 static size_t g_bytesAllocated = 0;
 
 void* operator new(size_t size) {
@@ -22,13 +31,17 @@ void* operator new(size_t size) {
     return p;
 }
 
+// matching deleetes so memory from operator new is freed properly
 void operator delete(void* p) noexcept { std::free(p); }
 void operator delete(void* p, size_t) noexcept { std::free(p); }
 
+// textbook false positive rate 
 double theoryRate(double m, double n, double k) {
     return std::pow(1.0 - std::exp(-k * n / m), k);
 }
 
+// builds a filter, inserts n items, then checks NUM_TESTS items that were never inserted, any probably yes is a false positive. 
+// trial changes the item names so repeated trials use fresh data
 double measureRate(uint64_t m, int n, int k, int trial) {
     BloomFilter filter(m, k);
     std::string prefix = std::to_string(trial) + "_";
@@ -45,6 +58,7 @@ double measureRate(uint64_t m, int n, int k, int trial) {
     return (double)falsePositives / NUM_TESTS;
 }
 
+// exp1: fix m and k, vary n (number of items inserted). as more items are added, more bits are 1, so rate should rise
 void experimentVaryN() {
     uint64_t m = 10000;
     int k = 7;
@@ -60,6 +74,8 @@ void experimentVaryN() {
     }
 }
 
+// exp2: fix m and n, vary k (number of hash functions), too few hashes = easy accidentl matches, too many = array fills up
+// theory predicts U- shape with the lowest rate near k = (m/n) ln 2
 void experimentVaryK() {
     uint64_t m = 10000;
     int n = 1000;
@@ -77,11 +93,15 @@ void experimentVaryK() {
     }
 }
 
+// exp3: composite m (10000) vs prime m (10007) averaged over 5 trials. with double hashing, if h2 shares a factor with m,
+// the positions can repeat, 10000 has many factors, 10007 is prime (no repeats possible).
+// Tests whether that pushes the measured rate above theory
 void experimentPrimeM() {
     int n = 1000;
     int trials = 5;
     std::cout << "\nExperiment 3: composite m = 10000 vs prime m = 10007, n = " << n << ", " 
     << trials << " trials each" << std::endl;
+    std::cout <<"    k  m=10000   m=10007   theory" << std::endl;
     std::ofstream out("results/prime_m.csv");
     out << "k,composite_m_10000,prime_m_10007,theory\n";
     for (int k = 1; k <= 15; k++) {
@@ -100,6 +120,7 @@ void experimentPrimeM() {
     }
 }
 
+// exp4: basline, memory and speed vs std::unordered_set. 
 void experimentBaseLine() {
     // size filter for 1% false positive rate
     double targetP = 0.01;
@@ -114,9 +135,11 @@ void experimentBaseLine() {
     std::vector<int> sizes = {1000, 10000, 100000, 1000000};
     for (int s = 0; s < (int)sizes.size(); s++) {
         int n = sizes[s];
+        // standard sizing formulas
         uint64_t m = (uint64_t)std::ceil(-n * std::log(targetP) / (std::log(2.0) * std::log(2.0)));
         int k = (int)std::round(((double)m / n) * std::log(2.0));
         
+        // make all strings up front so creating isnt counted in the timings
         std::vector<std::string> items;
         std::vector<std::string> tests;
 
@@ -127,6 +150,7 @@ void experimentBaseLine() {
             tests.push_back("test_" + std::to_string(i));
         }
 
+        // resets the counter so only the sets own allocations are measured
         g_bytesAllocated = 0;
         auto start = std::chrono::steady_clock::now();
         std::unordered_set<std::string> set;
@@ -149,6 +173,7 @@ void experimentBaseLine() {
         end = std::chrono::steady_clock::now();
         double setLookupMs = std::chrono::duration<double, std::milli>(end - start).count();
 
+        // BLOOM FILTER
         g_bytesAllocated = 0;
         start = std::chrono::steady_clock::now();
         BloomFilter filter(m, k);
@@ -158,6 +183,7 @@ void experimentBaseLine() {
         }
 
         end = std::chrono::steady_clock::now();
+        // counted directly rather than with g_bytesAllocated as add() can inflate count
         size_t bloomBytes = sizeof(BloomFilter) + (m+7) / 8;
         double bloomInsertMs = std::chrono::duration<double, std::milli>(end - start).count();
 
@@ -171,8 +197,10 @@ void experimentBaseLine() {
         }
         end = std::chrono::steady_clock::now();
         double bloomLookupMs = std::chrono::duration<double, std::milli>(end - start).count();
+        // test items were never inserted, so every hit is a false positive (fp)
         double fpRate = (double)bloomHits / NUM_TESTS;
-
+        
+        // checks the set stores exact items, meaning it should never find a test item
         if (setHits != 0) {
             std::cout << "Warning: set found " << setHits << " test items " << std::endl;
         }
